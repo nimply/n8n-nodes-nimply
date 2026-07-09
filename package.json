@@ -1,0 +1,64 @@
+{
+  "name": "n8n-nodes-nimply",
+  "version": "0.1.0",
+  "description": "n8n community nodes for Nimply — schedule, publish, and measure social media content",
+  "keywords": [
+    "n8n-community-node-package",
+    "nimply",
+    "social media",
+    "social media scheduling",
+    "instagram",
+    "facebook",
+    "linkedin",
+    "tiktok",
+    "youtube",
+    "twitter",
+    "pinterest"
+  ],
+  "license": "MIT",
+  "homepage": "https://nimply.io",
+  "author": {
+    "name": "Nimply",
+    "email": "support@nimply.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nimply/n8n-nodes-nimply.git"
+  },
+  "engines": {
+    "node": ">=18.10"
+  },
+  "main": "index.js",
+  "files": [
+    "dist",
+    "index.js"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "dev": "tsc --watch",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build && npm run lint"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/NimplyApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Nimply/Nimply.node.js",
+      "dist/nodes/Nimply/NimplyTrigger.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "n8n-workflow": "^1.82.0",
+    "typescript": "^5.5.4"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
