@@ -1,4 +1,4 @@
-# n8n-nodes-nimply
+# @nimply/n8n-nodes-nimply
 
 This is an n8n community node package for [Nimply](https://nimply.io) — schedule, publish, and measure social media content across Facebook, Instagram, X/Twitter, LinkedIn, TikTok, YouTube, Pinterest, and more.
 
@@ -15,12 +15,12 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 
 1. In n8n, go to **Settings → Community Nodes**.
 2. Select **Install**.
-3. Enter `n8n-nodes-nimply` and confirm.
+3. Enter `@nimply/n8n-nodes-nimply` and confirm.
 
 For a self-hosted manual install:
 
 ```bash
-npm install n8n-nodes-nimply
+npm install @nimply/n8n-nodes-nimply
 ```
 
 ## Credentials
