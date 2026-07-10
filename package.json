@@ -1,10 +1,10 @@
 {
   "name": "@nimply/n8n-nodes-nimply",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishConfig": {
     "access": "public"
   },
-  "description": "n8n community nodes for Nimply — schedule, publish, and measure social media content",
+  "description": "n8n community nodes for Nimply.io — schedule, publish, and measure social media content",
   "keywords": [
     "n8n-community-node-package",
     "nimply",

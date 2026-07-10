@@ -19,7 +19,7 @@ export class Nimply implements INodeType {
 		group: ['output'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-		description: 'Schedule, publish, and measure social media content with Nimply',
+		description: 'Schedule, publish, and measure social media content with Nimply.io',
 		defaults: {
 			name: 'Nimply',
 		},
