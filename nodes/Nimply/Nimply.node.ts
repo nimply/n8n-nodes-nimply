@@ -101,6 +101,12 @@ export class Nimply implements INodeType {
 						action: 'Schedule a post',
 					},
 					{
+						name: 'Unschedule',
+						value: 'unschedule',
+						description: 'Move a scheduled post back to draft and clear its publish time',
+						action: 'Unschedule a post',
+					},
+					{
 						name: 'Update',
 						value: 'update',
 						description: 'Update the content or title of a post',
@@ -247,7 +253,7 @@ export class Nimply implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['post'],
-						operation: ['get', 'delete', 'publish', 'schedule', 'update'],
+						operation: ['get', 'delete', 'publish', 'schedule', 'unschedule', 'update'],
 					},
 				},
 			},
@@ -706,6 +712,13 @@ export class Nimply implements INodeType {
 							'POST',
 							`/v1/posts/${postId}/schedule`,
 							{ scheduledAt },
+						);
+					} else if (operation === 'unschedule') {
+						const postId = this.getNodeParameter('postId', i) as string;
+						responseData = await nimplyApiRequest.call(
+							this,
+							'POST',
+							`/v1/posts/${postId}/unschedule`,
 						);
 					} else if (operation === 'publish') {
 						const postId = this.getNodeParameter('postId', i) as string;

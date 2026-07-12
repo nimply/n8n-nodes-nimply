@@ -47,6 +47,7 @@ The credential is verified against `GET /v1/workspace`.
 | Post | Update | Update the content/title of a draft or scheduled post |
 | Post | Delete | Delete a draft or scheduled post |
 | Post | Schedule | Set or change when a post will publish |
+| Post | Unschedule | Move a scheduled post back to draft and clear its publish time |
 | Post | Publish | Queue a post for immediate publishing |
 | Channel | Get Many | List connected channels |
 | Channel | Get Schedule | Get a channel's posting time slots per weekday |
