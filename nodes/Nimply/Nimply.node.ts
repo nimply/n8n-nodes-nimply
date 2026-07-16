@@ -11,6 +11,37 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import { nimplyApiRequest, nimplyApiRequestAllItems } from './GenericFunctions';
 
+async function loadChannelsByType(
+	this: ILoadOptionsFunctions,
+	types: string[],
+): Promise<INodePropertyOptions[]> {
+	const channels = (await nimplyApiRequest.call(this, 'GET', '/v1/channels')) as Array<{
+		id: string;
+		name: string;
+		type: string;
+	}>;
+	return channels
+		.filter((channel) => types.includes(channel.type))
+		.map((channel) => ({
+			name: types.length > 1 ? `${channel.name} (${channel.type})` : channel.name,
+			value: channel.id,
+		}));
+}
+
+/** Copy collection fields into the body, skipping fields left empty. */
+function assignSetFields(body: IDataObject, fields: IDataObject): void {
+	for (const [key, value] of Object.entries(fields)) {
+		if (value !== '' && value !== undefined) body[key] = value;
+	}
+}
+
+function splitIds(ids: string): string[] {
+	return ids
+		.split(',')
+		.map((id) => id.trim())
+		.filter((id) => id !== '');
+}
+
 export class Nimply implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Nimply',
@@ -69,6 +100,30 @@ export class Nimply implements INodeType {
 						value: 'createBulk',
 						description: 'Create up to 50 posts in one request',
 						action: 'Create posts in bulk',
+					},
+					{
+						name: 'Create LinkedIn Post',
+						value: 'createLinkedIn',
+						description: 'Post to a LinkedIn profile or company page with visibility control',
+						action: 'Create a linked in post',
+					},
+					{
+						name: 'Create Pinterest Pin',
+						value: 'createPinterest',
+						description: 'Create a pin on a specific board with link and alt text',
+						action: 'Create a pinterest pin',
+					},
+					{
+						name: 'Create TikTok Post',
+						value: 'createTikTok',
+						description: 'Post a video or photos to TikTok with privacy and interaction settings',
+						action: 'Create a tiktok post',
+					},
+					{
+						name: 'Create YouTube Video',
+						value: 'createYouTube',
+						description: 'Upload a video or Short with full YouTube options',
+						action: 'Create a you tube video',
 					},
 					{
 						name: 'Delete',
@@ -171,7 +226,10 @@ export class Nimply implements INodeType {
 				],
 				default: 'draft',
 				displayOptions: {
-					show: { resource: ['post'], operation: ['create'] },
+					show: {
+						resource: ['post'],
+						operation: ['create', 'createYouTube', 'createTikTok', 'createPinterest', 'createLinkedIn'],
+					},
 				},
 				description:
 					'When to publish. Anything except Draft requires an API key with the posts:publish scope.',
@@ -183,7 +241,11 @@ export class Nimply implements INodeType {
 				required: true,
 				default: '',
 				displayOptions: {
-					show: { resource: ['post'], operation: ['create'], schedule: ['custom'] },
+					show: {
+						resource: ['post'],
+						operation: ['create', 'createYouTube', 'createTikTok', 'createPinterest', 'createLinkedIn'],
+						schedule: ['custom'],
+					},
 				},
 				description: 'When to publish the post (must be in the future)',
 			},
@@ -224,6 +286,388 @@ export class Nimply implements INodeType {
 						type: 'string',
 						default: '',
 						description: 'Title (used by YouTube and Pinterest)',
+					},
+				],
+			},
+
+			// post:createYouTube
+			{
+				displayName: 'Channel Name or ID',
+				name: 'channelId',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getYouTubeChannels' },
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createYouTube'] },
+				},
+				description:
+					'YouTube channel to upload to. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			},
+			{
+				displayName: 'Title',
+				name: 'title',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createYouTube'] },
+				},
+				description: 'Video title (required by YouTube, max 100 characters)',
+			},
+			{
+				displayName: 'Video Media ID',
+				name: 'mediaId',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createYouTube'] },
+				},
+				description: 'Media asset ID of the video (upload via the Media resource first)',
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'youtubeFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createYouTube'] },
+				},
+				options: [
+					{
+						displayName: 'Allow Embedding',
+						name: 'allowEmbedding',
+						type: 'boolean',
+						default: true,
+						description: 'Whether the video can be embedded on other sites',
+					},
+					{
+						displayName: 'Category',
+						name: 'category',
+						type: 'options',
+						options: [
+							{ name: 'Autos & Vehicles', value: '2' },
+							{ name: 'Comedy', value: '23' },
+							{ name: 'Education', value: '27' },
+							{ name: 'Entertainment', value: '24' },
+							{ name: 'Film & Animation', value: '1' },
+							{ name: 'Gaming', value: '20' },
+							{ name: 'Howto & Style', value: '26' },
+							{ name: 'Music', value: '10' },
+							{ name: 'News & Politics', value: '25' },
+							{ name: 'People & Blogs', value: '22' },
+							{ name: 'Pets & Animals', value: '15' },
+							{ name: 'Science & Technology', value: '28' },
+							{ name: 'Sports', value: '17' },
+							{ name: 'Travel & Events', value: '19' },
+						],
+						default: '22',
+						description: 'YouTube video category',
+					},
+					{
+						displayName: 'Description',
+						name: 'description',
+						type: 'string',
+						typeOptions: { rows: 4 },
+						default: '',
+						description: 'Video description',
+					},
+					{
+						displayName: 'License',
+						name: 'license',
+						type: 'options',
+						options: [
+							{ name: 'Creative Commons', value: 'creativeCommon' },
+							{ name: 'Standard YouTube License', value: 'youtube' },
+						],
+						default: 'youtube',
+					},
+					{
+						displayName: 'Made for Kids',
+						name: 'madeForKids',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to self-declare the video as made for kids (COPPA)',
+					},
+					{
+						displayName: 'Notify Subscribers',
+						name: 'notifySubscribers',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to notify channel subscribers about the new video',
+					},
+					{
+						displayName: 'Video Type',
+						name: 'videoType',
+						type: 'options',
+						options: [
+							{ name: 'Video', value: 'video' },
+							{ name: 'Short', value: 'short' },
+						],
+						default: 'video',
+						description: 'Regular video upload or a YouTube Short',
+					},
+					{
+						displayName: 'Visibility',
+						name: 'visibility',
+						type: 'options',
+						options: [
+							{ name: 'Private', value: 'private' },
+							{ name: 'Public', value: 'public' },
+							{ name: 'Unlisted', value: 'unlisted' },
+						],
+						default: 'public',
+						description: 'Who can see the video',
+					},
+				],
+			},
+
+			// post:createTikTok
+			{
+				displayName: 'Channel Name or ID',
+				name: 'channelId',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getTikTokChannels' },
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createTikTok'] },
+				},
+				description:
+					'TikTok channel to post to. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			},
+			{
+				displayName: 'Media IDs',
+				name: 'mediaIds',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createTikTok'] },
+				},
+				description:
+					'Comma-separated media asset IDs in display order: 1 video or up to 35 photos (upload via the Media resource first)',
+			},
+			{
+				displayName: 'Privacy Level Name or ID',
+				name: 'privacyLevel',
+				type: 'options',
+				typeOptions: {
+					loadOptionsMethod: 'getTikTokPrivacyLevels',
+					loadOptionsDependsOn: ['channelId'],
+				},
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createTikTok'] },
+				},
+				description:
+					'Who can view the post — only the levels the account allows are listed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'tiktokFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createTikTok'] },
+				},
+				options: [
+					{
+						displayName: 'Allow Comments',
+						name: 'allowComments',
+						type: 'boolean',
+						default: false,
+						description: 'Whether viewers can comment on the post',
+					},
+					{
+						displayName: 'Allow Duet',
+						name: 'allowDuet',
+						type: 'boolean',
+						default: false,
+						description: 'Whether viewers can Duet the video (video posts only)',
+					},
+					{
+						displayName: 'Allow Stitch',
+						name: 'allowStitch',
+						type: 'boolean',
+						default: false,
+						description: 'Whether viewers can Stitch the video (video posts only)',
+					},
+					{
+						displayName: 'Branded Content',
+						name: 'brandContent',
+						type: 'boolean',
+						default: false,
+						description:
+							'Whether to disclose the post as branded content (paid partnership). Not allowed with Only Me privacy.',
+					},
+					{
+						displayName: 'Caption',
+						name: 'content',
+						type: 'string',
+						typeOptions: { rows: 4 },
+						default: '',
+						description: 'Post caption',
+					},
+					{
+						displayName: 'Title',
+						name: 'title',
+						type: 'string',
+						default: '',
+						description: 'Post title (max 100 characters)',
+					},
+					{
+						displayName: 'Your Brand',
+						name: 'brandOrganic',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to disclose the post as promoting your own brand or business',
+					},
+				],
+			},
+
+			// post:createPinterest
+			{
+				displayName: 'Channel Name or ID',
+				name: 'channelId',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getPinterestChannels' },
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createPinterest'] },
+				},
+				description:
+					'Pinterest channel to pin with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			},
+			{
+				displayName: 'Board Name or ID',
+				name: 'boardId',
+				type: 'options',
+				typeOptions: {
+					loadOptionsMethod: 'getPinterestBoards',
+					loadOptionsDependsOn: ['channelId'],
+				},
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createPinterest'] },
+				},
+				description:
+					'Board to pin to. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			},
+			{
+				displayName: 'Media IDs',
+				name: 'mediaIds',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createPinterest'] },
+				},
+				description:
+					'Comma-separated media asset IDs in display order: up to 5 images (carousel) or 1 video (upload via the Media resource first)',
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'pinterestFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createPinterest'] },
+				},
+				options: [
+					{
+						displayName: 'Alt Text',
+						name: 'altText',
+						type: 'string',
+						default: '',
+						description: 'Alt text for accessibility (max 500 characters)',
+					},
+					{
+						displayName: 'Description',
+						name: 'content',
+						type: 'string',
+						typeOptions: { rows: 4 },
+						default: '',
+						description: 'Pin description',
+					},
+					{
+						displayName: 'Destination Link',
+						name: 'link',
+						type: 'string',
+						default: '',
+						description: 'URL the pin links to',
+					},
+					{
+						displayName: 'Title',
+						name: 'title',
+						type: 'string',
+						default: '',
+						description: 'Pin title (max 100 characters)',
+					},
+				],
+			},
+
+			// post:createLinkedIn
+			{
+				displayName: 'Channel Name or ID',
+				name: 'channelId',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getLinkedInChannels' },
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createLinkedIn'] },
+				},
+				description:
+					'LinkedIn profile or company page to post to. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			},
+			{
+				displayName: 'Content',
+				name: 'content',
+				type: 'string',
+				typeOptions: { rows: 4 },
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createLinkedIn'] },
+				},
+				description: 'Post text (max 3000 characters)',
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'linkedinFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['post'], operation: ['createLinkedIn'] },
+				},
+				options: [
+					{
+						displayName: 'Media IDs',
+						name: 'mediaIds',
+						type: 'string',
+						default: '',
+						description:
+							'Comma-separated media asset IDs in display order: up to 20 images or 1 video (upload via the Media resource first)',
+					},
+					{
+						displayName: 'Visibility',
+						name: 'visibility',
+						type: 'options',
+						options: [
+							{ name: 'Public', value: 'PUBLIC' },
+							{ name: 'Connections Only', value: 'CONNECTIONS' },
+						],
+						default: 'PUBLIC',
+						description: 'Who can see the post (Connections Only works on personal profiles)',
 					},
 				],
 			},
@@ -621,6 +1065,56 @@ export class Nimply implements INodeType {
 					value: channel.id,
 				}));
 			},
+
+			async getYouTubeChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadChannelsByType.call(this, ['YOUTUBE']);
+			},
+
+			async getTikTokChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadChannelsByType.call(this, ['TIKTOK_BUSINESS', 'TIKTOK_PERSONAL']);
+			},
+
+			async getPinterestChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadChannelsByType.call(this, ['PINTEREST']);
+			},
+
+			async getLinkedInChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadChannelsByType.call(this, ['LINKEDIN_PROFILE', 'LINKEDIN_PAGE']);
+			},
+
+			async getPinterestBoards(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const channelId = this.getCurrentNodeParameter('channelId') as string;
+				if (!channelId) return [];
+				const boards = (await nimplyApiRequest.call(
+					this,
+					'GET',
+					`/v1/channels/${channelId}/pinterest/boards`,
+				)) as Array<{ id: string; name: string; privacy: string }>;
+				return boards.map((board) => ({
+					name: board.privacy === 'PUBLIC' ? board.name : `${board.name} (${board.privacy})`,
+					value: board.id,
+				}));
+			},
+
+			async getTikTokPrivacyLevels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const channelId = this.getCurrentNodeParameter('channelId') as string;
+				if (!channelId) return [];
+				const info = (await nimplyApiRequest.call(
+					this,
+					'GET',
+					`/v1/channels/${channelId}/tiktok/creator-info`,
+				)) as { privacyLevelOptions: string[] };
+				const labels: Record<string, string> = {
+					PUBLIC_TO_EVERYONE: 'Public',
+					MUTUAL_FOLLOW_FRIENDS: 'Friends',
+					FOLLOWER_OF_CREATOR: 'Followers',
+					SELF_ONLY: 'Only Me',
+				};
+				return info.privacyLevelOptions.map((level) => ({
+					name: labels[level] ?? level,
+					value: level,
+				}));
+			},
 		},
 	};
 
@@ -662,6 +1156,51 @@ export class Nimply implements INodeType {
 						}
 
 						responseData = await nimplyApiRequest.call(this, 'POST', '/v1/posts', body);
+					} else if (
+						operation === 'createYouTube' ||
+						operation === 'createTikTok' ||
+						operation === 'createPinterest' ||
+						operation === 'createLinkedIn'
+					) {
+						const body: IDataObject = {
+							channelId: this.getNodeParameter('channelId', i) as string,
+						};
+
+						if (operation === 'createYouTube') {
+							body.title = this.getNodeParameter('title', i) as string;
+							body.mediaId = this.getNodeParameter('mediaId', i) as string;
+							assignSetFields(body, this.getNodeParameter('youtubeFields', i) as IDataObject);
+						} else if (operation === 'createTikTok') {
+							body.mediaIds = splitIds(this.getNodeParameter('mediaIds', i) as string);
+							body.privacyLevel = this.getNodeParameter('privacyLevel', i) as string;
+							assignSetFields(body, this.getNodeParameter('tiktokFields', i) as IDataObject);
+						} else if (operation === 'createPinterest') {
+							body.boardId = this.getNodeParameter('boardId', i) as string;
+							body.mediaIds = splitIds(this.getNodeParameter('mediaIds', i) as string);
+							assignSetFields(body, this.getNodeParameter('pinterestFields', i) as IDataObject);
+						} else {
+							body.content = this.getNodeParameter('content', i) as string;
+							const linkedinFields = this.getNodeParameter('linkedinFields', i) as IDataObject;
+							if (linkedinFields.mediaIds) {
+								body.mediaIds = splitIds(linkedinFields.mediaIds as string);
+							}
+							if (linkedinFields.visibility) body.visibility = linkedinFields.visibility;
+						}
+
+						const schedule = this.getNodeParameter('schedule', i) as string;
+						if (schedule === 'custom') {
+							body.schedule = this.getNodeParameter('scheduledAt', i) as string;
+						} else if (schedule !== 'draft') {
+							body.schedule = schedule;
+						}
+
+						const endpoints: Record<string, string> = {
+							createYouTube: '/v1/posts/youtube',
+							createTikTok: '/v1/posts/tiktok',
+							createPinterest: '/v1/posts/pinterest',
+							createLinkedIn: '/v1/posts/linkedin',
+						};
+						responseData = await nimplyApiRequest.call(this, 'POST', endpoints[operation], body);
 					} else if (operation === 'createBulk') {
 						const postsParameter = this.getNodeParameter('posts', i);
 						let posts: IDataObject[];

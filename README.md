@@ -42,6 +42,10 @@ The credential is verified against `GET /v1/workspace`.
 | --- | --- | --- |
 | Post | Create | Create a post on one or more channels (`draft`, `next_slot`, `now`, or a specific datetime) |
 | Post | Create Bulk | Create up to 50 posts in one request |
+| Post | Create YouTube Video | Upload a video or Short with full YouTube options — category, visibility, license, subscriber notification, embedding, made-for-kids |
+| Post | Create TikTok Post | Post a video or photos with privacy level (loaded live from the account), comment/Duet/Stitch settings, and commercial-content disclosure |
+| Post | Create Pinterest Pin | Create a pin on a specific board (picked from a live dropdown) with a destination link and alt text |
+| Post | Create LinkedIn Post | Post to a profile or company page with visibility control (public or connections only) |
 | Post | Get | Get a single post |
 | Post | Get Many | List posts, filterable by status and channel (cursor pagination handled for you) |
 | Post | Update | Update the content/title of a draft or scheduled post |
@@ -57,6 +61,19 @@ The credential is verified against `GET /v1/workspace`.
 | Analytics | Get Workspace Analytics | Aggregated metrics across all channels for a date range |
 | Analytics | Get Channel Analytics | Daily profile metrics for one channel |
 | Analytics | Get Post Analytics | Daily metric snapshots for one post |
+
+#### Platform-specific posting
+
+The generic **Create** operation covers the fields every platform understands. For
+platforms with their own options, use the dedicated operations instead — they expose the
+full option set with dropdowns populated live from your account:
+
+- **Create YouTube Video** — title (required), video or Short, category, visibility (public/unlisted/private), license, notify subscribers, allow embedding, made for kids.
+- **Create TikTok Post** — privacy level (required; only the levels your account allows are listed), allow comments/Duet/Stitch, branded-content and your-brand disclosure.
+- **Create Pinterest Pin** — board (required; picked from the channel's boards), title, description, destination link, alt text.
+- **Create LinkedIn Post** — content (required), media, visibility (public or connections only).
+
+Facebook, Instagram, X/Twitter, and Threads have no extra options — use the generic **Create** operation for those.
 
 ### Nimply Trigger node
 
