@@ -1059,11 +1059,16 @@ export class Nimply implements INodeType {
 					id: string;
 					name: string;
 					type: string;
+					capabilities?: { publish?: boolean };
 				}>;
-				return channels.map((channel) => ({
-					name: `${channel.name} (${channel.type})`,
-					value: channel.id,
-				}));
+				// This dropdown feeds post creation — hide messaging-only channels
+				// (capabilities.publish === false, e.g. WhatsApp).
+				return channels
+					.filter((channel) => channel.capabilities?.publish !== false)
+					.map((channel) => ({
+						name: `${channel.name} (${channel.type})`,
+						value: channel.id,
+					}));
 			},
 
 			async getYouTubeChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
