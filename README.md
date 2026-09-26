@@ -28,7 +28,7 @@ npm install @nimply/n8n-nodes-nimply
 The nodes use the **Nimply API** credential type:
 
 1. In the Nimply app, go to **Settings → Developers** and create an API key (`nim_live_...`).
-   - For creating/scheduling posts you need the `posts:write` scope; publishing (`now`, `next_slot`, or a scheduled time) additionally requires `posts:publish`. The trigger needs `webhooks:write`.
+   - For creating/scheduling posts you need the `posts:write` scope; publishing (`now`, `next_slot`, or a scheduled time) additionally requires `posts:publish`. The trigger needs `webhooks:write`. Link Page operations need `links:read` (get, get many) and `links:write` (add/update block, publish).
 2. In n8n, create a new **Nimply API** credential and paste the key.
 3. Leave **Base URL** at `https://api.nimply.io` unless you are testing against another environment.
 
@@ -61,6 +61,11 @@ The credential is verified against `GET /v1/workspace`.
 | Analytics | Get Workspace Analytics | Aggregated metrics across all channels for a date range |
 | Analytics | Get Channel Analytics | Daily profile metrics for one channel |
 | Analytics | Get Post Analytics | Daily metric snapshots for one post |
+| Link Page | Get Many | List the workspace's nimply.link pages |
+| Link Page | Get | Get a page with its blocks |
+| Link Page | Add Block | Add a link button, text, section, post card, product, coupon, countdown, notice bar, FAQ or testimonial block (optionally publish right after) |
+| Link Page | Update Block | Replace a block's config, switch it on/off, or set its schedule window (optionally publish right after) |
+| Link Page | Publish | Publish the page draft so changes go live at nimply.link |
 
 #### Platform-specific posting
 

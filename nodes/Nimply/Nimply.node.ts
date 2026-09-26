@@ -71,6 +71,7 @@ export class Nimply implements INodeType {
 				options: [
 					{ name: 'Analytics', value: 'analytics' },
 					{ name: 'Channel', value: 'channel' },
+					{ name: 'Link Page', value: 'linkPage' },
 					{ name: 'Media', value: 'media' },
 					{ name: 'Post', value: 'post' },
 				],
@@ -845,6 +846,230 @@ export class Nimply implements INodeType {
 			},
 
 			// ----------------------------------------------------------------
+			//                           link page
+			// ----------------------------------------------------------------
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: { resource: ['linkPage'] },
+				},
+				options: [
+					{
+						name: 'Add Block',
+						value: 'addBlock',
+						description: 'Add a link, text, product, coupon, countdown, FAQ or testimonial block to a page',
+						action: 'Add a block to a link page',
+					},
+					{
+						name: 'Get',
+						value: 'get',
+						description: 'Get a link page with its blocks',
+						action: 'Get a link page',
+					},
+					{
+						name: 'Get Many',
+						value: 'getAll',
+						description: 'List the workspace link pages (nimply.link)',
+						action: 'Get many link pages',
+					},
+					{
+						name: 'Publish',
+						value: 'publish',
+						description: 'Publish the page draft so changes go live',
+						action: 'Publish a link page',
+					},
+					{
+						name: 'Update Block',
+						value: 'updateBlock',
+						description: 'Change a block config, switch it on or off, or set its schedule window',
+						action: 'Update a link page block',
+					},
+				],
+				default: 'addBlock',
+			},
+			{
+				displayName: 'Page Name or ID',
+				name: 'pageId',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getLinkPages' },
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['get', 'addBlock', 'updateBlock', 'publish'] },
+				},
+				description:
+					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			},
+			{
+				displayName: 'Block Type',
+				name: 'blockType',
+				type: 'options',
+				required: true,
+				default: 'LINK',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['addBlock'] },
+				},
+				options: [
+					{ name: 'Countdown', value: 'COUNTDOWN' },
+					{ name: 'Coupon', value: 'COUPON' },
+					{ name: 'FAQ', value: 'FAQ' },
+					{ name: 'Link Button', value: 'LINK' },
+					{ name: 'Notice Bar', value: 'NOTICE_BAR' },
+					{ name: 'Post Card', value: 'POST_CARD' },
+					{ name: 'Product', value: 'PRODUCT' },
+					{ name: 'Section Title', value: 'SECTION' },
+					{ name: 'Testimonial', value: 'TESTIMONIAL' },
+					{ name: 'Text', value: 'TEXT' },
+				],
+			},
+			{
+				displayName: 'Title',
+				name: 'linkTitle',
+				type: 'string',
+				default: '',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['addBlock'], blockType: ['LINK'] },
+				},
+				description: 'Button label',
+			},
+			{
+				displayName: 'URL',
+				name: 'linkUrl',
+				type: 'string',
+				default: '',
+				placeholder: 'https://',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['addBlock'], blockType: ['LINK'] },
+				},
+				description: 'Destination the button opens',
+			},
+			{
+				displayName: 'Config (JSON)',
+				name: 'config',
+				type: 'json',
+				default: '{}',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['addBlock'] },
+				},
+				description:
+					'Block config for the chosen type, e.g. for a countdown {"targetAt":"2026-10-03T18:00:00Z","label":"Drop in"}. For Link Button the Title/URL fields above are merged in. See https://developer.nimply.io/docs/link-pages.',
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'additionalFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['addBlock'] },
+				},
+				options: [
+					{
+						displayName: 'Position',
+						name: 'position',
+						type: 'number',
+						default: 0,
+						description: '0-based position in the page; leave out to append at the end',
+					},
+					{
+						displayName: 'Publish After Adding',
+						name: 'publishAfter',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to publish the page right after adding the block',
+					},
+					{
+						displayName: 'Scheduled End',
+						name: 'scheduledEndAt',
+						type: 'dateTime',
+						default: '',
+						description: 'Hide the block after this time',
+					},
+					{
+						displayName: 'Scheduled Start',
+						name: 'scheduledStartAt',
+						type: 'dateTime',
+						default: '',
+						description: 'Show the block from this time',
+					},
+					{
+						displayName: 'Style',
+						name: 'style',
+						type: 'options',
+						default: 'solid',
+						options: [
+							{ name: 'Card', value: 'card' },
+							{ name: 'Featured', value: 'featured' },
+							{ name: 'Outline', value: 'outline' },
+							{ name: 'Solid', value: 'solid' },
+						],
+						description: 'Link Button style',
+					},
+				],
+			},
+			{
+				displayName: 'Block ID',
+				name: 'blockId',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['updateBlock'] },
+				},
+				description: 'Block ID from the Get operation',
+			},
+			{
+				displayName: 'Update Fields',
+				name: 'updateFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['updateBlock'] },
+				},
+				options: [
+					{
+						displayName: 'Active',
+						name: 'isActive',
+						type: 'boolean',
+						default: true,
+						description: 'Whether the block is shown; off hides it without deleting',
+					},
+					{
+						displayName: 'Config (JSON)',
+						name: 'config',
+						type: 'json',
+						default: '{}',
+						description: 'Full replacement config for the block',
+					},
+					{
+						displayName: 'Publish After Updating',
+						name: 'publishAfter',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to publish the page right after the change',
+					},
+					{
+						displayName: 'Scheduled End',
+						name: 'scheduledEndAt',
+						type: 'dateTime',
+						default: '',
+						description: 'Hide the block after this time',
+					},
+					{
+						displayName: 'Scheduled Start',
+						name: 'scheduledStartAt',
+						type: 'dateTime',
+						default: '',
+						description: 'Show the block from this time',
+					},
+				],
+			},
+
+			// ----------------------------------------------------------------
 			//                             media
 			// ----------------------------------------------------------------
 			{
@@ -1071,6 +1296,16 @@ export class Nimply implements INodeType {
 					}));
 			},
 
+			async getLinkPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const response = (await nimplyApiRequest.call(this, 'GET', '/v1/link-pages')) as {
+					data?: Array<{ id: string; handle: string; title?: string; status?: string }>;
+				};
+				return (response.data ?? []).map((page) => ({
+					name: `${page.title || page.handle} (nimply.link/${page.handle}${page.status && page.status !== 'PUBLISHED' ? `, ${page.status.toLowerCase()}` : ''})`,
+					value: page.id,
+				}));
+			},
+
 			async getYouTubeChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return loadChannelsByType.call(this, ['YOUTUBE']);
 			},
@@ -1284,6 +1519,100 @@ export class Nimply implements INodeType {
 							'GET',
 							`/v1/channels/${channelId}/schedule`,
 						);
+					} else {
+						throw new NodeOperationError(
+							this.getNode(),
+							`The operation "${operation}" is not supported`,
+							{ itemIndex: i },
+						);
+					}
+				} else if (resource === 'linkPage') {
+					const parseJson = (raw: unknown, field: string): IDataObject => {
+						if (raw === undefined || raw === null || raw === '') return {};
+						if (typeof raw === 'object') return raw as IDataObject;
+						try {
+							return JSON.parse(raw as string) as IDataObject;
+						} catch {
+							throw new NodeOperationError(this.getNode(), `${field} must be valid JSON`, {
+								itemIndex: i,
+							});
+						}
+					};
+					if (operation === 'getAll') {
+						responseData = await nimplyApiRequest.call(this, 'GET', '/v1/link-pages');
+						responseData = (responseData as { data?: IDataObject[] }).data ?? responseData;
+					} else if (operation === 'get') {
+						const pageId = this.getNodeParameter('pageId', i) as string;
+						responseData = await nimplyApiRequest.call(this, 'GET', `/v1/link-pages/${pageId}`);
+					} else if (operation === 'publish') {
+						const pageId = this.getNodeParameter('pageId', i) as string;
+						responseData = await nimplyApiRequest.call(
+							this,
+							'POST',
+							`/v1/link-pages/${pageId}/publish`,
+						);
+					} else if (operation === 'addBlock') {
+						const pageId = this.getNodeParameter('pageId', i) as string;
+						const type = this.getNodeParameter('blockType', i) as string;
+						const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
+						const config = parseJson(this.getNodeParameter('config', i), 'Config');
+						if (type === 'LINK') {
+							const title = this.getNodeParameter('linkTitle', i, '') as string;
+							const url = this.getNodeParameter('linkUrl', i, '') as string;
+							if (title) config.title = title;
+							if (url) config.url = url;
+							if (additionalFields.style) config.style = additionalFields.style;
+						}
+						const body: IDataObject = { type, config };
+						if (additionalFields.position !== undefined && additionalFields.position !== '') {
+							body.position = additionalFields.position;
+						}
+						if (additionalFields.scheduledStartAt) body.scheduledStartAt = additionalFields.scheduledStartAt;
+						if (additionalFields.scheduledEndAt) body.scheduledEndAt = additionalFields.scheduledEndAt;
+						responseData = await nimplyApiRequest.call(
+							this,
+							'POST',
+							`/v1/link-pages/${pageId}/blocks`,
+							body,
+						);
+						if (additionalFields.publishAfter) {
+							const published = (await nimplyApiRequest.call(
+								this,
+								'POST',
+								`/v1/link-pages/${pageId}/publish`,
+							)) as IDataObject;
+							responseData = { ...(responseData as IDataObject), published };
+						}
+					} else if (operation === 'updateBlock') {
+						const pageId = this.getNodeParameter('pageId', i) as string;
+						const blockId = this.getNodeParameter('blockId', i) as string;
+						const updateFields = this.getNodeParameter('updateFields', i) as IDataObject;
+						const body: IDataObject = {};
+						if (updateFields.isActive !== undefined) body.isActive = updateFields.isActive;
+						if (updateFields.config !== undefined && updateFields.config !== '' && updateFields.config !== '{}') {
+							body.config = parseJson(updateFields.config, 'Config');
+						}
+						if (updateFields.scheduledStartAt) body.scheduledStartAt = updateFields.scheduledStartAt;
+						if (updateFields.scheduledEndAt) body.scheduledEndAt = updateFields.scheduledEndAt;
+						if (Object.keys(body).length === 0) {
+							throw new NodeOperationError(this.getNode(), 'Set at least one field to update', {
+								itemIndex: i,
+							});
+						}
+						responseData = await nimplyApiRequest.call(
+							this,
+							'PATCH',
+							`/v1/link-pages/${pageId}/blocks/${blockId}`,
+							body,
+						);
+						if (updateFields.publishAfter) {
+							const published = (await nimplyApiRequest.call(
+								this,
+								'POST',
+								`/v1/link-pages/${pageId}/publish`,
+							)) as IDataObject;
+							responseData = { ...(responseData as IDataObject), published };
+						}
 					} else {
 						throw new NodeOperationError(
 							this.getNode(),
