@@ -86,6 +86,17 @@ export class NimplyTrigger implements INodeType {
 						description: 'A social channel was disconnected',
 					},
 					{
+						name: 'Lead Created',
+						value: 'lead.created',
+						description:
+							'A lead was captured by the Sales Lead agent, saved from Nimply Sidekick, or added by hand',
+					},
+					{
+						name: 'Lead Stage Changed',
+						value: 'lead.stage_changed',
+						description: 'A lead moved stage (new, contacted, qualified, proposal, won, lost)',
+					},
+					{
 						name: 'Post Approval Requested',
 						value: 'post.approval_requested',
 						description: 'A post was submitted for approval',

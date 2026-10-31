@@ -9,7 +9,11 @@ import type {
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { nimplyApiRequest, nimplyApiRequestAllItems } from './GenericFunctions';
+import { nimplyApiRequest, nimplyApiRequestAllItems, splitIds } from './GenericFunctions';
+import { agentProperties, executeAgent } from './resources/AgentResource';
+import { automationProperties, executeAutomation } from './resources/AutomationResource';
+import { brandKitProperties, executeBrandKit } from './resources/BrandKitResource';
+import { designProperties, executeDesign } from './resources/DesignResource';
 
 async function loadChannelsByType(
 	this: ILoadOptionsFunctions,
@@ -28,18 +32,28 @@ async function loadChannelsByType(
 		}));
 }
 
+/** Load a `{ data: [{ id, name, status? }] }` list endpoint as dropdown options. */
+async function loadNamedList(
+	this: ILoadOptionsFunctions,
+	endpoint: string,
+): Promise<INodePropertyOptions[]> {
+	const response = (await nimplyApiRequest.call(this, 'GET', endpoint)) as {
+		data?: Array<{ id: string; name?: string; label?: string; status?: string }>;
+	};
+	return (response.data ?? []).map((item) => {
+		const name = item.name ?? item.label ?? item.id;
+		return {
+			name: item.status && item.status !== 'ACTIVE' ? `${name} (${item.status.toLowerCase()})` : name,
+			value: item.id,
+		};
+	});
+}
+
 /** Copy collection fields into the body, skipping fields left empty. */
 function assignSetFields(body: IDataObject, fields: IDataObject): void {
 	for (const [key, value] of Object.entries(fields)) {
 		if (value !== '' && value !== undefined) body[key] = value;
 	}
-}
-
-function splitIds(ids: string): string[] {
-	return ids
-		.split(',')
-		.map((id) => id.trim())
-		.filter((id) => id !== '');
 }
 
 export class Nimply implements INodeType {
@@ -50,7 +64,8 @@ export class Nimply implements INodeType {
 		group: ['output'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-		description: 'Schedule, publish, and measure social media content with Nimply.io',
+		description:
+			'Run AI agents, automations and designs, and schedule, approve, publish and measure social media posts with Nimply.io',
 		defaults: {
 			name: 'Nimply',
 		},
@@ -69,11 +84,16 @@ export class Nimply implements INodeType {
 				type: 'options',
 				noDataExpression: true,
 				options: [
+					{ name: 'Agent', value: 'agent' },
 					{ name: 'Analytics', value: 'analytics' },
+					{ name: 'Automation', value: 'automation' },
+					{ name: 'Brand Kit', value: 'brandKit' },
 					{ name: 'Channel', value: 'channel' },
+					{ name: 'Design', value: 'design' },
 					{ name: 'Link Page', value: 'linkPage' },
 					{ name: 'Media', value: 'media' },
 					{ name: 'Post', value: 'post' },
+					{ name: 'Workspace', value: 'workspace' },
 				],
 				default: 'post',
 			},
@@ -90,6 +110,12 @@ export class Nimply implements INodeType {
 					show: { resource: ['post'] },
 				},
 				options: [
+					{
+						name: 'Approve',
+						value: 'approve',
+						description: 'Approve a post that is waiting for approval',
+						action: 'Approve a post',
+					},
 					{
 						name: 'Create',
 						value: 'create',
@@ -117,7 +143,7 @@ export class Nimply implements INodeType {
 					{
 						name: 'Create TikTok Post',
 						value: 'createTikTok',
-						description: 'Post a video or photos to TikTok with privacy and interaction settings',
+						description: 'Post a video or photos to TikTok, or send it to TikTok drafts',
 						action: 'Create a tiktok post',
 					},
 					{
@@ -149,6 +175,18 @@ export class Nimply implements INodeType {
 						value: 'publish',
 						description: 'Queue a post for immediate publishing',
 						action: 'Publish a post',
+					},
+					{
+						name: 'Reject',
+						value: 'reject',
+						description: 'Send a post waiting for approval back with feedback',
+						action: 'Reject a post',
+					},
+					{
+						name: 'Request Approval',
+						value: 'requestApproval',
+						description: 'Send a draft for approval',
+						action: 'Request approval for a post',
 					},
 					{
 						name: 'Schedule',
@@ -368,6 +406,14 @@ export class Nimply implements INodeType {
 						description: 'YouTube video category',
 					},
 					{
+						displayName: 'Contains AI-Made Content',
+						name: 'containsSyntheticMedia',
+						type: 'boolean',
+						default: false,
+						description:
+							"Whether to tell YouTube the video has realistic AI-made people or scenes (YouTube's altered or synthetic content label)",
+					},
+					{
 						displayName: 'Description',
 						name: 'description',
 						type: 'string',
@@ -452,22 +498,6 @@ export class Nimply implements INodeType {
 					'Comma-separated media asset IDs in display order: 1 video or up to 35 photos (upload via the Media resource first)',
 			},
 			{
-				displayName: 'Privacy Level Name or ID',
-				name: 'privacyLevel',
-				type: 'options',
-				typeOptions: {
-					loadOptionsMethod: 'getTikTokPrivacyLevels',
-					loadOptionsDependsOn: ['channelId'],
-				},
-				required: true,
-				default: '',
-				displayOptions: {
-					show: { resource: ['post'], operation: ['createTikTok'] },
-				},
-				description:
-					'Who can view the post — only the levels the account allows are listed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-			},
-			{
 				displayName: 'Additional Fields',
 				name: 'tiktokFields',
 				type: 'collection',
@@ -504,7 +534,7 @@ export class Nimply implements INodeType {
 						type: 'boolean',
 						default: false,
 						description:
-							'Whether to disclose the post as branded content (paid partnership). Not allowed with Only Me privacy.',
+							'Whether to disclose the post as branded content (a paid partnership with another brand)',
 					},
 					{
 						displayName: 'Caption',
@@ -513,6 +543,14 @@ export class Nimply implements INodeType {
 						typeOptions: { rows: 4 },
 						default: '',
 						description: 'Post caption',
+					},
+					{
+						displayName: 'Send to TikTok Drafts',
+						name: 'uploadToDraft',
+						type: 'boolean',
+						default: false,
+						description:
+							"Whether to send the post to the creator's TikTok inbox as a draft to finish in the TikTok app instead of publishing it. The only option for private TikTok accounts.",
 					},
 					{
 						displayName: 'Title',
@@ -698,9 +736,32 @@ export class Nimply implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['post'],
-						operation: ['get', 'delete', 'publish', 'schedule', 'unschedule', 'update'],
+						operation: [
+							'approve',
+							'delete',
+							'get',
+							'publish',
+							'reject',
+							'requestApproval',
+							'schedule',
+							'unschedule',
+							'update',
+						],
 					},
 				},
+			},
+
+			// post:approve / reject
+			{
+				displayName: 'Comment',
+				name: 'comment',
+				type: 'string',
+				typeOptions: { rows: 2 },
+				default: '',
+				displayOptions: {
+					show: { resource: ['post'], operation: ['approve', 'reject'] },
+				},
+				description: 'Optional feedback saved with the decision',
 			},
 
 			// post:schedule
@@ -817,6 +878,12 @@ export class Nimply implements INodeType {
 				},
 				options: [
 					{
+						name: 'Get',
+						value: 'get',
+						description: 'Get one connected channel',
+						action: 'Get a channel',
+					},
+					{
 						name: 'Get Many',
 						value: 'getAll',
 						description: 'List connected channels',
@@ -839,7 +906,7 @@ export class Nimply implements INodeType {
 				required: true,
 				default: '',
 				displayOptions: {
-					show: { resource: ['channel'], operation: ['getSchedule'] },
+					show: { resource: ['channel'], operation: ['get', 'getSchedule'] },
 				},
 				description:
 					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
@@ -864,10 +931,22 @@ export class Nimply implements INodeType {
 						action: 'Add a block to a link page',
 					},
 					{
+						name: 'Delete Block',
+						value: 'deleteBlock',
+						description: 'Remove a block from a page',
+						action: 'Delete a link page block',
+					},
+					{
 						name: 'Get',
 						value: 'get',
 						description: 'Get a link page with its blocks',
 						action: 'Get a link page',
+					},
+					{
+						name: 'Get Analytics',
+						value: 'getAnalytics',
+						description: 'Views and clicks for a page',
+						action: 'Get link page analytics',
 					},
 					{
 						name: 'Get Many',
@@ -898,7 +977,10 @@ export class Nimply implements INodeType {
 				required: true,
 				default: '',
 				displayOptions: {
-					show: { resource: ['linkPage'], operation: ['get', 'addBlock', 'updateBlock', 'publish'] },
+					show: {
+						resource: ['linkPage'],
+						operation: ['get', 'addBlock', 'updateBlock', 'deleteBlock', 'getAnalytics', 'publish'],
+					},
 				},
 				description:
 					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
@@ -1017,9 +1099,23 @@ export class Nimply implements INodeType {
 				required: true,
 				default: '',
 				displayOptions: {
-					show: { resource: ['linkPage'], operation: ['updateBlock'] },
+					show: { resource: ['linkPage'], operation: ['updateBlock', 'deleteBlock'] },
 				},
 				description: 'Block ID from the Get operation',
+			},
+			{
+				displayName: 'Range',
+				name: 'range',
+				type: 'options',
+				options: [
+					{ name: 'Last 7 Days', value: '7d' },
+					{ name: 'Last 28 Days', value: '28d' },
+					{ name: 'Last 12 Months', value: '12m' },
+				],
+				default: '28d',
+				displayOptions: {
+					show: { resource: ['linkPage'], operation: ['getAnalytics'] },
+				},
 			},
 			{
 				displayName: 'Update Fields',
@@ -1082,6 +1178,18 @@ export class Nimply implements INodeType {
 				},
 				options: [
 					{
+						name: 'Delete',
+						value: 'delete',
+						description: 'Delete a media asset that no post or design uses',
+						action: 'Delete a media asset',
+					},
+					{
+						name: 'Get',
+						value: 'get',
+						description: 'Get one media asset',
+						action: 'Get a media asset',
+					},
+					{
 						name: 'Get Many',
 						value: 'getAll',
 						description: 'List media assets',
@@ -1102,6 +1210,16 @@ export class Nimply implements INodeType {
 					},
 				],
 				default: 'upload',
+			},
+			{
+				displayName: 'Media ID',
+				name: 'mediaId',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: { resource: ['media'], operation: ['get', 'delete'] },
+				},
 			},
 			{
 				displayName: 'Input Binary Field',
@@ -1274,6 +1392,33 @@ export class Nimply implements INodeType {
 					},
 				],
 			},
+
+			// ----------------------------------------------------------------
+			//                           workspace
+			// ----------------------------------------------------------------
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: { resource: ['workspace'] },
+				},
+				options: [
+					{
+						name: 'Get',
+						value: 'get',
+						description: 'Get the workspace this API key belongs to',
+						action: 'Get the workspace',
+					},
+				],
+				default: 'get',
+			},
+
+			...agentProperties,
+			...automationProperties,
+			...designProperties,
+			...brandKitProperties,
 		],
 	};
 
@@ -1294,6 +1439,42 @@ export class Nimply implements INodeType {
 						name: `${channel.name} (${channel.type})`,
 						value: channel.id,
 					}));
+			},
+
+			async getAllChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const channels = (await nimplyApiRequest.call(this, 'GET', '/v1/channels')) as Array<{
+					id: string;
+					name: string;
+					type: string;
+				}>;
+				return channels.map((channel) => ({
+					name: `${channel.name} (${channel.type})`,
+					value: channel.id,
+				}));
+			},
+
+			async getAgentTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadNamedList.call(this, '/v1/agent-templates');
+			},
+
+			async getAgents(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadNamedList.call(this, '/v1/agents');
+			},
+
+			async getAutomations(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadNamedList.call(this, '/v1/automations');
+			},
+
+			async getAutomationRecipes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadNamedList.call(this, '/v1/automation-recipes');
+			},
+
+			async getBrandKits(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadNamedList.call(this, '/v1/brand-kits');
+			},
+
+			async getDesignSizes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return loadNamedList.call(this, '/v1/design-sizes');
 			},
 
 			async getLinkPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -1333,26 +1514,6 @@ export class Nimply implements INodeType {
 				return boards.map((board) => ({
 					name: board.privacy === 'PUBLIC' ? board.name : `${board.name} (${board.privacy})`,
 					value: board.id,
-				}));
-			},
-
-			async getTikTokPrivacyLevels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const channelId = this.getCurrentNodeParameter('channelId') as string;
-				if (!channelId) return [];
-				const info = (await nimplyApiRequest.call(
-					this,
-					'GET',
-					`/v1/channels/${channelId}/tiktok/creator-info`,
-				)) as { privacyLevelOptions: string[] };
-				const labels: Record<string, string> = {
-					PUBLIC_TO_EVERYONE: 'Public',
-					MUTUAL_FOLLOW_FRIENDS: 'Friends',
-					FOLLOWER_OF_CREATOR: 'Followers',
-					SELF_ONLY: 'Only Me',
-				};
-				return info.privacyLevelOptions.map((level) => ({
-					name: labels[level] ?? level,
-					value: level,
 				}));
 			},
 		},
@@ -1412,7 +1573,6 @@ export class Nimply implements INodeType {
 							assignSetFields(body, this.getNodeParameter('youtubeFields', i) as IDataObject);
 						} else if (operation === 'createTikTok') {
 							body.mediaIds = splitIds(this.getNodeParameter('mediaIds', i) as string);
-							body.privacyLevel = this.getNodeParameter('privacyLevel', i) as string;
 							assignSetFields(body, this.getNodeParameter('tiktokFields', i) as IDataObject);
 						} else if (operation === 'createPinterest') {
 							body.boardId = this.getNodeParameter('boardId', i) as string;
@@ -1502,6 +1662,22 @@ export class Nimply implements INodeType {
 					} else if (operation === 'publish') {
 						const postId = this.getNodeParameter('postId', i) as string;
 						responseData = await nimplyApiRequest.call(this, 'POST', `/v1/posts/${postId}/publish`);
+					} else if (operation === 'approve' || operation === 'reject') {
+						const postId = this.getNodeParameter('postId', i) as string;
+						const comment = this.getNodeParameter('comment', i, '') as string;
+						responseData = await nimplyApiRequest.call(
+							this,
+							'POST',
+							`/v1/posts/${postId}/${operation}`,
+							comment ? { comment } : {},
+						);
+					} else if (operation === 'requestApproval') {
+						const postId = this.getNodeParameter('postId', i) as string;
+						responseData = await nimplyApiRequest.call(
+							this,
+							'POST',
+							`/v1/posts/${postId}/request-approval`,
+						);
 					} else {
 						throw new NodeOperationError(
 							this.getNode(),
@@ -1512,6 +1688,9 @@ export class Nimply implements INodeType {
 				} else if (resource === 'channel') {
 					if (operation === 'getAll') {
 						responseData = await nimplyApiRequest.call(this, 'GET', '/v1/channels');
+					} else if (operation === 'get') {
+						const channelId = this.getNodeParameter('channelId', i) as string;
+						responseData = await nimplyApiRequest.call(this, 'GET', `/v1/channels/${channelId}`);
 					} else if (operation === 'getSchedule') {
 						const channelId = this.getNodeParameter('channelId', i) as string;
 						responseData = await nimplyApiRequest.call(
@@ -1550,6 +1729,25 @@ export class Nimply implements INodeType {
 							this,
 							'POST',
 							`/v1/link-pages/${pageId}/publish`,
+						);
+					} else if (operation === 'deleteBlock') {
+						const pageId = this.getNodeParameter('pageId', i) as string;
+						const blockId = this.getNodeParameter('blockId', i) as string;
+						await nimplyApiRequest.call(
+							this,
+							'DELETE',
+							`/v1/link-pages/${pageId}/blocks/${blockId}`,
+						);
+						responseData = { deleted: true, blockId };
+					} else if (operation === 'getAnalytics') {
+						const pageId = this.getNodeParameter('pageId', i) as string;
+						const range = this.getNodeParameter('range', i) as string;
+						responseData = await nimplyApiRequest.call(
+							this,
+							'GET',
+							`/v1/link-pages/${pageId}/analytics`,
+							{},
+							{ range },
 						);
 					} else if (operation === 'addBlock') {
 						const pageId = this.getNodeParameter('pageId', i) as string;
@@ -1656,6 +1854,13 @@ export class Nimply implements INodeType {
 							`/v1/media/uploads/${ticket.mediaId}/complete`,
 							{ sizeBytes: buffer.length },
 						);
+					} else if (operation === 'get' || operation === 'delete') {
+						const mediaId = this.getNodeParameter('mediaId', i) as string;
+						responseData = await nimplyApiRequest.call(
+							this,
+							operation === 'get' ? 'GET' : 'DELETE',
+							`/v1/media/${mediaId}`,
+						);
 					} else if (operation === 'getAll') {
 						const returnAll = this.getNodeParameter('returnAll', i) as boolean;
 						const filters = this.getNodeParameter('filters', i) as IDataObject;
@@ -1708,6 +1913,16 @@ export class Nimply implements INodeType {
 							{ itemIndex: i },
 						);
 					}
+				} else if (resource === 'agent') {
+					responseData = await executeAgent.call(this, operation, i);
+				} else if (resource === 'automation') {
+					responseData = await executeAutomation.call(this, operation, i);
+				} else if (resource === 'design') {
+					responseData = await executeDesign.call(this, operation, i);
+				} else if (resource === 'brandKit') {
+					responseData = await executeBrandKit.call(this, operation, i);
+				} else if (resource === 'workspace') {
+					responseData = await nimplyApiRequest.call(this, 'GET', '/v1/workspace');
 				} else {
 					throw new NodeOperationError(
 						this.getNode(),

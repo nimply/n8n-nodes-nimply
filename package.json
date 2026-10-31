@@ -1,15 +1,18 @@
 {
   "name": "@nimply/n8n-nodes-nimply",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publishConfig": {
     "access": "public"
   },
-  "description": "n8n community nodes for Nimply.io \u2014 schedule, publish, and measure social media content",
+  "description": "n8n community nodes for Nimply.io \u2014 run AI social media agents, automations and designs, and schedule, approve, publish and measure posts",
   "keywords": [
     "n8n-community-node-package",
     "nimply",
     "social media",
     "social media scheduling",
+    "ai agents",
+    "social media automation",
+    "ai design",
     "instagram",
     "facebook",
     "linkedin",
