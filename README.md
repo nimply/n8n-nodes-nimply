@@ -133,6 +133,79 @@ Subscribes a Nimply webhook to your workflow and fires on the selected events:
 
 The webhook is created when the workflow is activated and removed when it is deactivated. Every delivery is verified against the `X-Nimply-Signature` header (HMAC-SHA256) using the signing secret returned at webhook creation; deliveries with a missing or invalid signature are rejected with `401`.
 
+## Example workflows
+
+Ready-to-import workflows live in [`examples/`](examples). To use one, open the JSON file, copy all of it, click into an empty n8n canvas and paste (Ctrl/Cmd+V). Then attach your **Nimply API** credential to the Nimply nodes and pick your own sheet, Slack channel or CRM URL.
+
+| File | What it does |
+| --- | --- |
+| [`agent-from-sheet-row.json`](examples/agent-from-sheet-row.json) | New Google Sheets row → **Agent → Run** with the row's `topic` → Slack message saying how many drafts are waiting for approval |
+| [`lead-to-crm.json`](examples/lead-to-crm.json) | **Nimply Trigger: lead.created** → HTTP Request that sends the lead's name, email, phone and profile to your CRM |
+| [`post-failed-alert.json`](examples/post-failed-alert.json) | **Nimply Trigger: post.failed** → **Post → Get** → Slack alert with the post text and the reason it failed |
+
+### Run an agent and use its drafts
+
+**Agent → Run** with **Wait for Completion** on returns the finished run:
+
+```json
+{
+  "id": "5b1c…",
+  "agentId": "a3f9…",
+  "status": "COMPLETED",
+  "creditsUsed": 12,
+  "outputs": { "postIds": ["7a24…", "9c01…"], "designIds": [], "ideaIds": [] }
+}
+```
+
+Pass input from earlier nodes with an expression in **Input (JSON)**:
+
+```
+{{ JSON.stringify({ topic: $json.topic, sourceUrl: $json.link }) }}
+```
+
+To approve the drafts from the workflow (for example after someone replies in Slack), add n8n's **Split Out** node on `outputs.postIds`, then **Post → Approve** with **Post ID** set to `{{ $json.postIds }}`.
+
+### Create a carousel design
+
+**Design → Create From Prompt** with **Format: Carousel** and **Wait for Completion** on returns the finished job. Each design has an edit link and preview images:
+
+```json
+{
+  "id": "6a1f…",
+  "status": "done",
+  "creditsCharged": 140,
+  "designs": [
+    {
+      "id": "d81e…",
+      "name": "Autumn menu",
+      "pageCount": 5,
+      "editUrl": "https://app.nimply.io/…",
+      "previewUrls": ["https://…/1.png", "…"]
+    }
+  ]
+}
+```
+
+Use **Design → Estimate Credits** first, or set **Max Credits**, to cap what a run can spend.
+
+### React to webhook events
+
+Every **Nimply Trigger** delivery has the same envelope. Branch on `type` and read `data`:
+
+```json
+{
+  "id": "evt_56e4…",
+  "type": "lead.created",
+  "createdAt": "2026-10-31T09:12:00.000Z",
+  "workspaceId": "d838…",
+  "data": {
+    "lead": { "id": "…", "name": "Sara Malik", "platform": "INSTAGRAM", "stage": "NEW", "contact_email": "sara@example.com" }
+  }
+}
+```
+
+`post.*` events carry `data.postId`, `data.channelId`, `data.status` and, for `post.failed`, `data.error`.
+
 ## Upgrading from 0.4.x or earlier
 
 - **Create TikTok Post** no longer has the required **Privacy Level** field. TikTok ignores it now; existing workflows keep working without changes.

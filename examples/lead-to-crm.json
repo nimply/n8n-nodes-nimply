@@ -1,0 +1,52 @@
+{
+  "name": "Nimply - send new leads to your CRM",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "lead.created"
+        ]
+      },
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "New lead",
+      "type": "@nimply/n8n-nodes-nimply.nimplyTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-crm.example.com/contacts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.data.lead.name, email: $json.data.lead.contact_email, phone: $json.data.lead.contact_phone, profile: $json.data.lead.profile_url, platform: $json.data.lead.platform, interest: $json.data.lead.interest, source: 'Nimply' }) }}",
+        "options": {}
+      },
+      "id": "c2000000-0000-4000-8000-000000000002",
+      "name": "Send to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "New lead": {
+      "main": [
+        [
+          {
+            "node": "Send to CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

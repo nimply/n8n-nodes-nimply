@@ -1,0 +1,80 @@
+{
+  "name": "Nimply - alert when a post fails",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "post.failed"
+        ]
+      },
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "Post failed",
+      "type": "@nimply/n8n-nodes-nimply.nimplyTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "get",
+        "postId": "={{ $json.data.postId }}"
+      },
+      "id": "c2000000-0000-4000-8000-000000000002",
+      "name": "Nimply: get post",
+      "type": "@nimply/n8n-nodes-nimply.nimply",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "text": "=A Nimply post failed to publish.\nPost: {{ ($json.content || $json.title || '').slice(0, 140) }}\nReason: {{ $('Post failed').item.json.data.error }}",
+        "otherOptions": {}
+      },
+      "id": "c3000000-0000-4000-8000-000000000003",
+      "name": "Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Post failed": {
+      "main": [
+        [
+          {
+            "node": "Nimply: get post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nimply: get post": {
+      "main": [
+        [
+          {
+            "node": "Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

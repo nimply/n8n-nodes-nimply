@@ -1,0 +1,99 @@
+{
+  "name": "Nimply - run an agent for each new sheet row",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "New row in sheet",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "agent",
+        "operation": "run",
+        "agentId": "",
+        "input": "={{ JSON.stringify({ topic: $json.topic }) }}",
+        "waitForCompletion": true,
+        "maxWait": 300
+      },
+      "id": "c2000000-0000-4000-8000-000000000002",
+      "name": "Nimply: run agent",
+      "type": "@nimply/n8n-nodes-nimply.nimply",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "text": "={{ $json.status === 'COMPLETED' ? `Nimply agent finished: ${$json.outputs.postIds.length} draft(s) are waiting for approval in the Planner.` : `Nimply agent run ${$json.status.toLowerCase()}: ${$json.error ?? 'still working, check it in Nimply'}` }}",
+        "otherOptions": {}
+      },
+      "id": "c3000000-0000-4000-8000-000000000003",
+      "name": "Tell the team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "New row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Nimply: run agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nimply: run agent": {
+      "main": [
+        [
+          {
+            "node": "Tell the team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}
