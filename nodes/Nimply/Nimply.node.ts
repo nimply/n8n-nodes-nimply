@@ -446,6 +446,15 @@ export class Nimply implements INodeType {
 						description: 'Whether to notify channel subscribers about the new video',
 					},
 					{
+						displayName: 'Tags',
+						name: 'tags',
+						type: 'string',
+						default: '',
+						placeholder: 'social media, marketing tips',
+						description:
+							'Comma-separated words people might search for. YouTube allows 500 characters for all tags together.',
+					},
+					{
 						displayName: 'Video Type',
 						name: 'videoType',
 						type: 'options',
@@ -1571,6 +1580,15 @@ export class Nimply implements INodeType {
 							body.title = this.getNodeParameter('title', i) as string;
 							body.mediaId = this.getNodeParameter('mediaId', i) as string;
 							assignSetFields(body, this.getNodeParameter('youtubeFields', i) as IDataObject);
+							// Tags are typed as one comma-separated line; the API takes a list.
+							if (typeof body.tags === 'string') {
+								const tags = body.tags
+									.split(',')
+									.map((t) => t.trim())
+									.filter(Boolean);
+								if (tags.length) body.tags = tags;
+								else delete body.tags;
+							}
 						} else if (operation === 'createTikTok') {
 							body.mediaIds = splitIds(this.getNodeParameter('mediaIds', i) as string);
 							assignSetFields(body, this.getNodeParameter('tiktokFields', i) as IDataObject);
