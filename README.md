@@ -55,7 +55,7 @@ The credential is verified against `GET /v1/workspace`.
 | Post | Create YouTube Video | Upload a video or Short with full YouTube options — category, visibility, license, subscriber notification, embedding, made-for-kids, AI-made content label |
 | Post | Create TikTok Post | Post a video or photos with comment/Duet/Stitch settings and commercial-content disclosure, or send it to the creator's TikTok drafts |
 | Post | Create Pinterest Pin | Create a pin on a specific board (picked from a live dropdown) with a destination link and alt text |
-| Post | Create LinkedIn Post | Post to a profile or company page with visibility control (public or connections only) |
+| Post | Create LinkedIn Post | Post to a connected LinkedIn channel with visibility control (public or connections only) |
 | Post | Request Approval | Send a draft for approval |
 | Post | Approve | Approve a post waiting for approval, with an optional comment |
 | Post | Reject | Send a post back with feedback |
